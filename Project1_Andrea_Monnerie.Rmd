@@ -1,0 +1,295 @@
+---
+title: "Project1"
+author: "Andrea Monnerie"
+date: "2022-10-08"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction
+
+For this project I am interested in airline customer satisfaction since I am plan on working in the airline industry. I curious to know which are the biggest factors to customer satisfaction. What are some improvements that the airline can make?
+
+## The Data Set
+
+I will using a data set called Airline Passenger Satisfaction from Kaggle.com. 
+
+Here is the link to the data set on Kaggle.com:
+https://www.kaggle.com/datasets/teejmahal20/airline-passenger-satisfaction?select=train.csv
+
+The creator of this data set noted that this data set is a simpler version of a data set by John D.
+
+Here the link to John D's data set:
+https://www.kaggle.com/datasets/johndddddd/customer-satisfaction
+
+John D data set is from a US airline passenger satisfaction survey. For this project I will be using simpler, cleaner version. 
+
+```{r}
+path = "C:\\Users\\monne\\OneDrive\\Documents\\ASU\\DAT 301\\Project 1\\train.csv"
+survey <- read.csv(path, stringsAsFactors = FALSE)
+
+```
+
+These are the original columns of survey from Kaggle:
+(Satisfaction level = 0 for Not Applicable and scale 1-5; 1 having the least and 5 having the most)
+
+X: index starting at 0
+"Gender: Gender of the passengers (Female, Male)
+Customer Type: The customer type (Loyal customer, disloyal customer)
+Age: The actual age of the passengers
+Type of Travel: Purpose of the flight of the passengers (Personal Travel, Business Travel)
+Class: Travel class in the plane of the passengers (Business, Eco, Eco Plus)
+
+Flight distance: The flight distance of this journey
+
+Inflight wifi service: Satisfaction level of the inflight wifi service
+Departure/Arrival time convenient: Satisfaction level of Departure/Arrival time convenient
+Ease of Online booking: Satisfaction level of online booking
+Gate location: Satisfaction level of Gate location
+Food and drink: Satisfaction level of Food and drink
+Online boarding: Satisfaction level of online boarding
+Seat comfort: Satisfaction level of Seat comfort
+Inflight entertainment: Satisfaction level of inflight entertainment
+On-board service: Satisfaction level of On-board service
+Leg room service: Satisfaction level of Leg room service
+Baggage handling: Satisfaction level of baggage handling
+Check-in service: Satisfaction level of Check-in service
+Inflight service: Satisfaction level of inflight service
+Cleanliness: Satisfaction level of Cleanliness
+
+Departure Delay in Minutes: Minutes delayed when departure
+Arrival Delay in Minutes: Minutes delayed when Arrival
+
+Satisfaction: Airline satisfaction level(Satisfaction, neutral or dissatisfaction)"
+
+## Clean up and Data wrangling
+
+Despite the creator stating that the data set is cleaner from the original I still need to verify that there are no potential NA's or characters that needs to be cleaned up.
+
+```{r}
+summary(survey)
+```
+
+So far I do not see any NAs is any of the columns. However I want to put some columns that should be treated as factors such as Gender, Type of Travel, Class, Customer Type and Satisfaction.
+
+I decided to have some new columns
+
+One to measure satisfaction
+satisfyScore = is a scale from 1 to 57 of how satisfied the customer is. It is calculated by getting the sum of the satisfaction levels from Inflight wifi service to Cleanliness. This will be a scale from (0-70)..
+
+Another to organize Age into Age Groups:
+0-14, 15-29, 30-49, 50-64, 65+
+
+```{r}
+# factor the following columns
+library(dplyr)
+cleanSurvey = data.frame(Class = factor(survey$Class))
+cleanSurvey$Customer.Type = factor(survey$Customer.Type)
+cleanSurvey$Type.of.Travel = factor(survey$Type.of.Travel)
+cleanSurvey$Gender = factor(survey$Gender)
+cleanSurvey$satisfaction = factor(survey$satisfaction, labels = c("not satisfied", "satisfied"))
+cleanSurvey$Age = survey$Age
+
+#Add the necessary columns
+Age.Group <- survey %>% select(Age) %>% mutate(Age.Group = case_when(
+      Age <= 14            ~ "<=14",
+      Age > 14 & Age <= 29 ~ "15-29",
+      Age > 29 & Age <= 49 ~ "30-49",
+      Age > 49 & Age <= 64 ~ "50-64",
+      Age > 64             ~ "65+"))
+cleanSurvey$Age.Group <- as.factor(Age.Group$Age.Group)
+cleanSurvey <- cbind(cleanSurvey, survey[9:22])
+
+
+#Create a new mutated column - my additional ways to measure satisfaction
+score = rowSums(cleanSurvey[8:21])
+cleanSurvey <- mutate(cleanSurvey, satisfyScore = score)
+
+#check if there are participants that rates all amenity "Non Applicable"
+nrow(filter(cleanSurvey, satisfyScore==0))
+
+#Verify my clean data frame
+str(cleanSurvey)
+
+```
+
+I think my clean data frame is ready for my data analysis
+
+## Data Analysis - The passengers
+
+I need to understand the population that participated in the survey. I will create some graphs to visualize my population
+
+1) Gender: How many of the participants are female? How many males?
+
+2) Customer Type/Loyalty: How many customers are part of the company's loyalty program/membership? How many are not loyal?
+
+3) Class: How many of the participants are in business class? How many in Eco and Eco plus?
+
+4) Age: What is the range of the participants' age? What is the average age of the participants? Is the ages of 50% percent of the population?
+
+```{r}
+library(ggplot2)
+
+#GENDER
+ggplot(cleanSurvey, aes(Gender, fill=Gender)) + geom_bar(stat = "count") + ylim(0, 54500) +ylab("Count") + geom_text(stat = "count", aes(label = after_stat(count)), vjust = -1) + labs(title = "Number of Participants by Gender")
+
+#CUSTOMER TYPE/LOYALTY
+ggplot(cleanSurvey, aes(Customer.Type, fill=Customer.Type)) + geom_bar(stat = "count") + ylim(0, 90000) +ylab("Count") + geom_text(stat = "count", aes(label = after_stat(count)), vjust = -1) + labs(title = "Number of Participants by Customer type")
+
+#CLASS
+ggplot(cleanSurvey, aes(Class, fill=Class)) + geom_bar(stat = "count") + ylim(0, 90000) +ylab("Count") + geom_text(stat = "count", aes(label = after_stat(count)), vjust = -1) + labs(title = "Number of Participants by Class")
+
+#AGE
+cat("\nSummary of Age\n")
+summary(cleanSurvey$Age)
+
+#Lets make th age graph more organized
+ggplot(cleanSurvey, aes(x=Age.Group, fill=Age.Group)) + geom_bar(stat = "count") + ylim(0, 90000) +ylab("Count") + geom_text(stat = "count", aes(label = after_stat(count)), vjust = -1) + labs(title = "Number of Participants by Age Group")
+```
+
+1) Gender: How many of the participants are female? How many males?
+There are 52727 females and 51177 males. In fact, this is similar to the current sex ratio in the U.S..
+
+2) Customer Type/Loyalty: How many customers are part of the company's loyalty program/membership? How many are not loyal? There are 84923 loyal customers and 18981 disloyal customers. 
+
+3) Class: How many of the participants are in business class? How many in Eco and Eco plus? 49665 participants are in Business, 46745 are in Eco, and only 7494 are in Eco Plus.
+
+4) Age: What is the range of the participants' age? What is the average age of the participants? Is the ages of 50% percent of the population? The range is 7 to 85 years old. The mean is 39.4 and median 40. 50% of the participants are between 27 years old and 51 years old. 
+
+Lets check the general satisfaction of these participants
+
+```{r}
+SatisfyChart <- ggplot(cleanSurvey, aes(satisfaction, fill=satisfaction)) + geom_bar(stat = "count") + ylim(0, 80000) +ylab("Count") + geom_text(stat = "count", aes(label = after_stat(count)), vjust = -1) + labs(title = "Number of satisfied customers")
+SatisfyChart
+
+```
+
+It seems that most of the participants are not satisfied. I need to figure out who and what are the causes of their lack of satisfaction.
+
+## Data Analysis - satisfaction by the participants
+
+```{r}
+options(digits=4)
+xtabs(~ Class + satisfaction, data = cleanSurvey)
+
+cat("\nUsing my satisfaction score (scale 1-57):\n\n")
+xtabs(satisfyScore ~ Class + satisfyScore, aggregate(satisfyScore ~ Class + satisfyScore,cleanSurvey,mean))
+```
+
+This is interesting: Most customers in business are satisfied while customers in Eco and Eco plus classes are mostly not satisfied.
+
+```{r}
+xtabs(~ Gender + satisfaction, data = cleanSurvey)
+cat("\nUsing my satisfaction score (scale 1-57):\n\n")
+xtabs(satisfyScore ~ Gender + satisfyScore, aggregate(satisfyScore ~ Gender + satisfyScore,cleanSurvey,mean))
+```
+
+There seems to be no big correlation between Gender and satisfaction. But there are slightly more female that are not satisfied.
+
+```{r}
+xtabs(~ Customer.Type + satisfaction, data = cleanSurvey)
+
+cat("\nUsing my satisfaction score (scale 1-57):\n\n")
+xtabs(satisfyScore ~ Customer.Type + satisfyScore, aggregate(satisfyScore ~ Customer.Type + satisfyScore,cleanSurvey,mean))
+
+```
+```{r}
+xtabs(~ Age.Group + satisfaction, data = cleanSurvey)
+
+cat("\nUsing my satisfaction score (scale 1-57):\n\n")
+xtabs(satisfyScore ~ Age.Group + satisfyScore, aggregate(satisfyScore ~ Age.Group + satisfyScore,cleanSurvey,mean))
+```
+From this, disloyal customers are mostly not satisfied. However there seems to be a split for the loyal customers (there are a bit more dissatisfied loyal customers but I do not think it is a major difference).
+
+## Data Analysis - Satisfaction by amenity
+
+Now that I understand the general satisfaction by each group of participants. I need to understand specifically what they rated for each amenity.
+
+Firstly, lets Look at the general rating for each amenity from all participants
+
+```{r}
+library(tidyr)
+averageT <- cleanSurvey %>% select(Inflight.wifi.service:Cleanliness) %>% summarise_if(is.numeric, mean)
+averageT <- averageT %>% pivot_longer(cols = c(1:14), names_to='Amenities', values_to='average')
+averageT$average <- signif(averageT$average, digits = 2)
+ggplot(averageT, aes(x=Amenities, y=average)) + geom_bar(stat="identity", aes(fill = Amenities)) + theme(axis.text.x = element_blank()) + labs(title = "Average Safisfaction Rating for Each Amenity") + ylab("Average") + geom_text(stat = "identity", aes(label =average), vjust = 1.3) + ylim(0, 5)
+
+```
+
+Apparently, many of the participants agreed that the Inflight wifi service is not satisfying them. And Ease of Online Booking at is not far behind. The top amenities were baggage handling and Inflight service.
+
+Now, let's can a closer look at these rating for each amenities by class, gender, and customer type/loyalty to see if there is some correlation.
+
+```{r}
+averageP <- cleanSurvey %>% select(c(1,2,4,7:21))
+averagePlong <-  averageP %>% pivot_longer(cols = c(5:18), names_to='Amenities', values_to='rate')
+gg1 <- ggplot(averagePlong) + geom_boxplot(aes(x=Class, y=rate, fill=Amenities))+labs(title = "Satisfaction For Each Amenity by Class", fill = "Amenities") +ylab("Satisfaction Scale")
+gg2 <- ggplot(averagePlong) + geom_boxplot(aes(x=Gender, y=rate, fill=Amenities))+labs(title = "Satisfaction For Each Amenity by Gender", fill = "Amenities") +ylab("Satisfaction Scale")
+gg3 <- ggplot(averagePlong) + geom_boxplot(aes(x=Customer.Type, y=rate, fill=Amenities))+labs(title = "Satisfaction For Each Amenity by Customer Loyalty", fill = "Amenities") +ylab("Satisfaction Scale")
+gg4 <- ggplot(averagePlong) + geom_boxplot(aes(x=Age.Group, y=rate, fill=Amenities)) +labs(title = "Satisfaction For Each Amenity by Age Group", fill = "Amenities") + ylab("Satisfaction Scale")
+options(repr.plot.width=100)
+gg1
+gg2
+gg3
+gg4
+```
+
+Generally most of the participants  rated most amenities an average of 3.
+
+Class:
+
+All the class rated Inflight.wifi.service, Ease.of.Online.booking, Gate.location, and Food.and.drink, Baggage.handling, Inflight.service which is a general service for all classes.
+
+Business rated higher on amenities that specifically updated for them because of their class as such Seat.comfort, Inflight.entertainment, Leg.Room.service, Inflight.service, Checkin.service, and etc.. Oddly, the business class rated Cleanliness higher than the other two classes. Business did rated the Departure.Arrival.time.convenient lower than the other two classes.
+
+Eco rated nearly all the amenities the average 3 though they rated Departure.Arrival.time.convenient higher than business class.
+
+Eco Plus rated all the amenities the same as the Eco class.
+
+Gender:
+
+Again, there seems to be very little correlation between satisfaction and gender; each gender rated the amenities very similarly. The minor difference is women rated Seat.comfort a higher average of 4 instead of the men rated them as an average of 3.
+
+Type of Customer/Customer loyalty:
+
+The disloyal customers rated Departure.Arrival, Online.boarding, Seat.comfort, Inflight.entertainment, and On.board.service an average lower than the loyal customers. This could be because the amenities are based on loyalty. For instance, limited entertainment for disloyal customers, limited service for disloyal, and etc..
+
+
+## Data Analysis - Simple Regression and prediction
+I will create a simple linear regression for the satisfyScore by factors of Gender, Customer.Type, Class, and Age.
+
+```{r}
+library(tidyverse)
+
+options(digits=6)
+model = lm(satisfyScore ~ Gender + Customer.Type + Class + Age, data = cleanSurvey)
+summary(model)
+
+```
+
+I have a good picture of the data with the analysis. It seems that class is a greatest factor to whether the customer is satisfied to not. If the customer is in either Eco or Eco plus, they are not likely to be not satisfied. Next is customer type, if the customer is loyal to the company then they likely to be satisfied. Then it is gender, male are slightly more likely to be satisfied. Though, it does not affect much but there at least some effect. Finally age, again it does not have a big effect to determine the customers' satisfaction.
+
+I will now make a prediction on the customer's satisfaction based on only the age, gender, customer type, and class.
+
+```{r}
+predictScore <- predict.lm(model, interval = "prediction")
+error <- ((abs(predictScore[1] - cleanSurvey$satisfyScore))/cleanSurvey$satisfyScore)*100
+
+summary(error)
+boxplot(error, horizontal = TRUE, main = "Error precentage between the prediction and the actual score", xlab = "Error precentage (%)")
+```
+
+It looks that the prediction have a mean error of 17% and a median error of 15.8%. There are multiple outliers, with one extreme outlier, so it would be more appropriate to relay on the median than the mean; median is more reliable for this case. Therefore the prediction is averaging 84.2% correct.
+
+## Conclusion
+
+From the data I analyzed it seems that the major factor of satisfaction is the class the customer is in and then whether the customer is loyal or not to the airline. It pretty much stems to how much the customer is willing to pay for a ticket. It does not seem to be an obvious airline problem. 
+
+I manage to have a prediction of how satisfy the customer will depending on their gender, class, customer type/loyalty, and age. This prediction is averaging an 84.2% accuracy. 
+
+The solution to improve satisfaction is not have more business seats or to reduce the price of the Eco or Eco plus. I think the solution is to improve the amenities that most participants from all classes rated the lowest specifically the inflight wifi service, the ease of Online booking, gate location, food and drink, cleanliness, and departure/arrival time convenient. This is a more economical solution as all customers will enjoy the improvement. 
+
+However I do not think that food and drink is something the airline can completely control. While mid-air, the taste buds are numb making all food taste bland. Also depending on the airport, the airline can not pick the gate location. So for my solution I would focus primarily on inflight wifi service, the ease of Online booking, cleanliness, and plus departure/arrival time convenient. The latter should help satisfy disloyal customers and hopefully that will satisfy them enough to be loyal. 
